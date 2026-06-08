@@ -1,0 +1,13 @@
+{
+  "name": "recon",
+  "owner": { "name": "Farid K. Jafarli", "email": "farid.jafarlee@gmail.com" },
+  "plugins": [
+    {
+      "name": "recon",
+      "source": ".",
+      "description": "Multi-phase codebase recon → improve: map → hunt → fix/optimize, plus /recon:recon suggest and plan feature generation. Read-only worker subagents; gated, worktree-isolated, cherry-picked implementers.",
+      "homepage": "https://github.com/faridjafarlee/recon",
+      "license": "MIT"
+    }
+  ]
+}

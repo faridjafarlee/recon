@@ -1,0 +1,13 @@
+# OS / editor cruft
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# Claude Code plugin runtime state (should never be committed)
+.in_use
+.claude/settings.local.json
+
+# Recon's own working output, if the repo is ever used as a target
+.recon/

@@ -1,0 +1,8 @@
+{
+  "name": "recon",
+  "description": "Multi-phase codebase recon → improve: map the codebase, hunt for evidenced issues with read-only worker subagents, then apply gated fixes/optimizations and generate or plan features via parallel, worktree-isolated implementers.",
+  "author": { "name": "Farid K. Jafarli", "email": "farid.jafarlee@gmail.com" },
+  "homepage": "https://github.com/faridjafarlee/recon",
+  "repository": "https://github.com/faridjafarlee/recon",
+  "license": "MIT"
+}
