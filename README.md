@@ -67,6 +67,62 @@ Drive the full pipeline with **`/recon:recon`** — the parent stops at a gate b
 | `/recon:recon fix` | Front door to the Fix engine on selected `ISSUES.md` findings (auto-runs the Hunt first if missing). |
 | `/recon:recon optimize` | Front door to the Optimize engine on selected `OPTIMIZATIONS.md` findings (auto-runs the Hunt first if missing). |
 
+## Subagents & orchestration
+
+recon is a **parent + workers** system. The **parent** is your Claude Code session: it never edits source itself — it **drives the phases, dispatches subagents, independently re-verifies their findings, owns every write to `.recon/` and the work branch, and stops at a human gate between phases.** Each worker is a single-purpose subagent with a tight tool allowlist. All workers are **read-only on your source** except the one write-enabled `implementer`, and even it writes *only* inside its own isolated git worktree.
+
+Workers are spawned through the Agent tool by their **plugin-namespaced type** (`recon:mapper`, `recon:hunter`, …). The fill-in prompt for each lives in `skills/recon/reference/dispatch-prompts.md`; the severity rubric + finding format in `reference/conventions.md`; the output skeletons in `reference/artifact-templates.md`. Workers return **structured notes only** — they never write the deliverables; the parent does, after re-reading each cited `file:line`.
+
+### The roster
+
+| Subagent | Model | Source access | Dispatched in | Role |
+|----------|-------|---------------|---------------|------|
+| `recon:mapper` | Opus | read-only | Phase 2 (Map) — one per area, parallel | Reads one area; returns purpose, entry points, key files, data flow, dependencies, risk leads → `ARCHITECTURE.md`. |
+| `recon:hunter` | Opus | read-only | Phase 3 (Hunt) — one per area, parallel | Audits one area for defects + improvement leads → candidate findings. |
+| `recon:refactoring-auditor` | Opus | read-only | Phase 3 — once, repo-wide | Scans for code smells using its bundled refactoring catalog → `OPTIMIZATIONS.md`. |
+| `recon:threat-scout` | Opus | read-only | Phase 3 — once, repo-wide | Targeted threat-model hunt of the highest-risk bug classes for *this kind* of app. |
+| `recon:verifier` | Sonnet | read-only | Phase 4/5 + engine — on risky changes | Independently re-checks a change before cherry-pick → `APPROVE` / `APPROVE-WITH-NOTES` / `REJECT`. |
+| `recon:frontend-auditor` | Opus | read-only (drives a browser) | `/recon:recon test-frontend` | Exercises the running app's user flows via Playwright → client-side findings. |
+| `recon:pentester` | Opus | read-only on source, **active on the network** | `/recon:recon pentest` | Authorized, non-destructive API red-team → PoC-proven vulnerabilities. |
+| `recon:suggester` | Opus | read-only | `/recon:recon suggest` | Ideates ≥10 codebase-specific features grounded in the Map. |
+| `recon:planner` | Opus | read-only | suggest / plan / fix / optimize | **Decompose** mode: a task → a general plan. **Detail** mode: items → per-item sub-plans + a file-overlap **parallelization map**. |
+| `recon:implementer` | Sonnet | **writes — only inside its own git worktree** | execution engine | One per sub-plan; implements, tests against the baseline, makes one commit. The single write-enabled worker. |
+
+### How a run flows
+
+```text
+parent (your session) ── drives phases · owns .recon/ + the work branch · gates between phases
+  │
+  ├─ Phase 2  Map ──▶ recon:mapper ×N            (∥, read-only) ─────────────▶ .recon/ARCHITECTURE.md
+  │
+  ├─ Phase 3  Hunt ─▶ recon:hunter ×N            (∥, read-only) ─┐
+  │                   recon:refactoring-auditor  (∥, read-only)  ├─▶ ISSUES.md / OPTIMIZATIONS.md
+  │                   recon:threat-scout         (∥, read-only) ─┘   (parent re-reads each cited
+  │                                                                    file:line before recording)
+  │
+  └─ Phase 4/5 · suggest · plan ───────────────▶  Execution engine  ▼
+
+     recon:planner (Opus) ──▶ detailed sub-plans + parallelization map (disjoint-file batches)
+          │
+          ▼  per batch — up to implConcurrency in parallel
+     recon:implementer (Sonnet) ─ own git worktree ─ implement → test ≥ baseline → ONE commit
+          │
+          ▼
+     recon:verifier (risky changes) ─▶ APPROVE / REJECT
+          │
+          ▼
+     parent ─ cherry-picks each surviving commit back onto the work branch (separate commits, no squash)
+```
+
+### The execution engine
+
+Phase 4 (Fix), Phase 5 (Optimize), and the build half of `suggest` / `plan` all funnel into one engine, so there is a single, consistent way changes land:
+
+1. **Plan** — `recon:planner` (detail mode) turns the selected items into one sub-plan each, every sub-plan declaring the exact **file set** it will touch, then groups sub-plans with **disjoint** file sets into parallel **batches** (overlapping ones fall to later batches).
+2. **Build, in parallel, isolated** — for each batch the parent spawns one `recon:implementer` per sub-plan, each in its **own git worktree** (so concurrent builds can't collide), capped at `implConcurrency`. Each implementer works to a mode: **fix** (reproduce test → fix), **optimize** (characterization tests → refactor, identical outcomes, perf gain), or **feature** (TDD build).
+3. **Gate** — the parent checks each diff against its declared file set, runs `recon:verifier` on risky ones, and writes a per-change **dossier** under `.recon/fixes/…`.
+4. **Integrate** — the parent **cherry-picks** each passing worktree commit back onto the work branch as a separate commit (no squashing), pausing on any conflict or `REJECT`. Never the default branch.
+
 ## Safety model
 
 - **Only one worker edits** — every worker is read-only (no Edit/Write in its `tools:`) except `recon:implementer`, which writes **only inside its own git worktree** (never the originating/default branch or `.recon/`), stays within its plan's **declared file set** (parent-verified before cherry-pick), and makes one commit the parent cherry-picks back (**no squashing**).
@@ -85,7 +141,7 @@ Drive the full pipeline with **`/recon:recon`** — the parent stops at a gate b
 
 ## Models
 
-Discovery/planning workers (`mapper`, `hunter`, `refactoring-auditor`, `threat-scout`, `frontend-auditor`, `pentester`, `suggester`, `planner`) run on **Opus**; `verifier` and `implementer` run on **Sonnet** — set per-agent via `model:` frontmatter. Model changes take effect after a session reload.
+Per-agent models are in the roster above (Opus for discovery/planning, Sonnet for `verifier` + `implementer`), set via each agent's `model:` frontmatter. A model change takes effect only after a session reload — the agent registry is cached at session start.
 
 ## Layout
 
