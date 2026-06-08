@@ -1,6 +1,8 @@
 # recon
 
-A multi-phase **codebase recon → improve** system for [Claude Code](https://code.claude.com), packaged as a plugin.
+**An orchestrator of subagents for spec-driven development** — packaged as a plugin for [Claude Code](https://code.claude.com).
+
+recon decomposes work into specs and plans, then fans it out across purpose-built subagents — read-only auditors plus write-gated, worktree-isolated implementers. It maps and audits a codebase **and** drives spec-driven feature work (brainstorm → spec → plan → parallel build) end to end, with a human gate between every phase.
 
 The main Claude Code session is the **parent**: it drives the phases and fans out **read-only worker subagents** (one per area). The only worker that writes code is the `implementer`, which runs in an **isolated git worktree**, is **test-gated**, and whose commits the parent **cherry-picks back** as separate commits. Nothing touches your default branch.
 
@@ -10,12 +12,21 @@ The main Claude Code session is the **parent**: it drives the phases and fans ou
 
 ## Install
 
+**Recommended first — [Superpowers](https://github.com/obra/superpowers-marketplace):** recon's workflows lean on `superpowers:*` skills throughout (brainstorming, writing-plans, test-driven-development, using-git-worktrees, finishing-a-development-branch). Install it so those chains work:
+
+```text
+/plugin marketplace add obra/superpowers-marketplace
+/plugin install superpowers@superpowers-marketplace
+```
+
+**Then recon:**
+
 ```text
 /plugin marketplace add faridjafarlee/recon
 /plugin install recon@recon
 ```
 
-Then **reload** (or restart the session) so the skill + agents register:
+Then **reload** (or restart the session) so the skills + agents register:
 
 ```text
 /reload-plugins
