@@ -11,3 +11,7 @@
 
 # Recon's own working output, if the repo is ever used as a target
 .recon/
+
+# Local Obsidian knowledge-sync artifacts (not part of the distribution)
+KNOWLEDGE.md
+.cursor/
