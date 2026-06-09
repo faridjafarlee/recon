@@ -12,12 +12,20 @@ The main Claude Code session is the **parent**: it drives the phases and fans ou
 
 ## Install
 
-**Recommended first — [Superpowers](https://github.com/obra/superpowers-marketplace):** recon's workflows lean on `superpowers:*` skills throughout (brainstorming, writing-plans, test-driven-development, using-git-worktrees, finishing-a-development-branch). Install it so those chains work:
+**Recommended companions (install first):**
 
-```text
-/plugin marketplace add obra/superpowers-marketplace
-/plugin install superpowers@superpowers-marketplace
-```
+- **[Superpowers](https://github.com/obra/superpowers-marketplace)** — recon's workflows lean on `superpowers:*` skills throughout (brainstorming, writing-plans, test-driven-development, using-git-worktrees, finishing-a-development-branch). Install it so those chains work:
+
+  ```text
+  /plugin marketplace add obra/superpowers-marketplace
+  /plugin install superpowers@superpowers-marketplace
+  ```
+
+- **[Web Design Guidelines](https://github.com/vercel-labs/agent-skills)** (Vercel Labs) — a live-source UI design-principles audit (`/web-interface-guidelines`) that recon's design workflow leans on. Install via the `skills` CLI:
+
+  ```text
+  npx skills add vercel-labs/agent-skills
+  ```
 
 **Then recon:**
 
