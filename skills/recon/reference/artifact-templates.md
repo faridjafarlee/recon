@@ -238,7 +238,7 @@ Siblings: `change.diff` (applied diff); `benchmark/` (micro-benchmark sources, i
 ```markdown
 # Sub-plan <n>: <Title>
 
-- **Mode:** feature | fix | optimize
+- **Mode:** feature | fix | optimize | design
 - **Goal / acceptance:** <what done looks like>
 - **Declared file set:**
   - `path/to/file` (create | modify)
@@ -255,7 +255,7 @@ Siblings: `change.diff` (applied diff); `benchmark/` (micro-benchmark sources, i
 ```markdown
 # Parallelization map
 
-> Batches run sequentially; sub-plans within a batch run in parallel (cap: implConcurrency, default 10).
+> Batches run sequentially; sub-plans within a batch run in parallel (cap: implConcurrency, default 10; design mode → designConcurrency, default 3).
 
 ## Batch 1 (parallel)
 - <sub-plan id> — files: <declared set>
@@ -291,4 +291,81 @@ Verifier verdict: <APPROVE | APPROVE-WITH-NOTES | REJECT> — <notes> (risky pla
 - Date: <YYYY-MM-DD>
 
 Siblings: `change.diff` (features do no perf — omit `benchmark/`).
+```
+
+---
+
+## .recon/design.md  (/recon redesign — the living visual system, parent-authored)
+
+```markdown
+# Design system
+
+> Living visual system. Agents: append any new design value you discover here.
+> Generated/refined by recon/design-reviewer. <!-- ISO date -->
+
+## Color (OKLCH)
+- Tokens: background / surfaces / text / accents — as `oklch(L C H)`; contrast rules between tiers.
+
+## Typography
+- Banned (AI-slop): Inter, Geist, …
+- Roles: display / body / mono — family + scale (size/weight/line-height) + where used.
+
+## Layout & rhythm
+- Symmetry vs asymmetry stance; spacing scale; negative-space rules.
+
+## Components
+- Buttons / inputs / cards / nav — the canonical look (so pages stay consistent).
+
+## Anti-patterns (the L3 pins)
+- [ ] no Inter/Geist  - [ ] no Lucide default set  - [ ] no glassmorphism (`backdrop-blur`)
+- [ ] no centered-only hero  - [ ] committed palette (no purple-on-white default)  - [ ] …
+```
+
+---
+
+## .recon/design/review-YYYY-MM-DD.md  (design-reviewer report — parent-authored)
+
+```markdown
+# Design review
+
+> recon/design-reviewer. <!-- ISO date --> App: <url>. Run: first | later.
+
+## Improvements (strongest-impact first)
+
+### 1. <Title>
+- **What's wrong now:** … (screenshot: `screenshots/<slug>-before.png`)
+- **Principle / anti-pattern:** <which>
+- **Pages/components:** …
+- **Effort:** S | M | L
+- **Test pins:** mechanically-checkable: <…>; visual-judged: <…>
+
+<!-- repeat; "### <area> — no findings" if clean -->
+```
+
+---
+
+## .recon/design/<n>-<slug>/summary.md  (design dossier — parent-authored)
+
+```markdown
+# Design change: <title>
+
+**Sub-plan:** <plan-id>/<n>-<slug> · **Mode:** design
+
+## What changed
+<concrete description + design.md pins satisfied>
+
+## Files touched
+<declared set, confirmed against git diff>
+
+## Verification
+- Static checks: <pass — no new anti-pattern, or which failed>
+- Visual diff vs baseline: <approved | rejected> (before/after in `screenshots/`)
+- Suite: <X/Y → X/Y, or "baseline unavailable — manual review">
+- Verifier verdict: <APPROVE | APPROVE-WITH-NOTES | REJECT> — <notes> (risky only)
+
+## Outcome
+- Worktree commit: <hash>  Cherry-picked: <hash | not cherry-picked: blocked — reason>
+- Status: <committed | pending-approval | blocked>   Date: <YYYY-MM-DD>
+
+Siblings: `change.diff`; `screenshots/` (before/after).
 ```

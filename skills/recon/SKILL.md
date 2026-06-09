@@ -1,17 +1,17 @@
 ---
 name: recon
-description: Multi-phase codebase recon — map the codebase, then hunt for evidenced issues using read-only worker subagents, with a refactoring catalog as one specialized worker. Use when asked to understand, audit, do a refactoring/tech-debt sweep, or build a mental model of a codebase. Installed as a plugin; trigger /recon:recon (subcommands: /recon:recon test-frontend | pentest | suggest | plan "<task>" | fix | optimize).
+description: Multi-phase codebase recon — map the codebase, then hunt for evidenced issues using read-only worker subagents, with a refactoring catalog as one specialized worker. Use when asked to understand, audit, do a refactoring/tech-debt sweep, or build a mental model of a codebase. Installed as a plugin; trigger /recon:recon (subcommands: /recon:recon test-frontend | pentest | suggest | plan "<task>" | fix | optimize | redesign).
 ---
 
 ## Overview
 
-The main Claude Code session is the **parent**; it drives all phases and owns all writes to `.recon/` and the originating branch. Code edits are **delegated to `implementer` subagents confined to isolated git worktrees** — the single, deliberate write-enabled worker, used by Phase 4/5 and the suggest/plan/fix/optimize subcommands; every other worker stays read-only. In Phases 2 and 3, the parent dispatches read-only worker subagents — one per area — via the Agent tool; workers return structured notes only. Prompts to spawn each worker type live in `${CLAUDE_PLUGIN_ROOT}/skills/recon/reference/dispatch-prompts.md`; scoring and finding format live in `${CLAUDE_PLUGIN_ROOT}/skills/recon/reference/conventions.md`; output file skeletons live in `${CLAUDE_PLUGIN_ROOT}/skills/recon/reference/artifact-templates.md`. The ten worker definitions are at `${CLAUDE_PLUGIN_ROOT}/agents/mapper.md`, `${CLAUDE_PLUGIN_ROOT}/agents/hunter.md`, `${CLAUDE_PLUGIN_ROOT}/agents/refactoring-auditor.md`, `${CLAUDE_PLUGIN_ROOT}/agents/verifier.md`, `${CLAUDE_PLUGIN_ROOT}/agents/threat-scout.md`, `${CLAUDE_PLUGIN_ROOT}/agents/frontend-auditor.md`, `${CLAUDE_PLUGIN_ROOT}/agents/pentester.md`, `${CLAUDE_PLUGIN_ROOT}/agents/suggester.md`, `${CLAUDE_PLUGIN_ROOT}/agents/planner.md`, and `${CLAUDE_PLUGIN_ROOT}/agents/implementer.md`; see the References section for all ten. (The first four run in Phases 2–4 and `threat-scout` in Phase 3 — all read-only; `frontend-auditor` and `pentester` are subcommand workers run via `/recon test-frontend` and `/recon pentest`, and `pentester` is the one worker that sends live attack traffic — read-only on source, active on the network (gated, non-destructive). `suggester` and `planner` are read-only Opus workers for the generative subcommands; `implementer` is the one write-enabled worker — Sonnet, confined to its own git worktree — used by the shared execution engine.)
+The main Claude Code session is the **parent**; it drives all phases and owns all writes to `.recon/` and the originating branch. Code edits are **delegated to write-enabled subagents confined to isolated git worktrees** — `implementer` (Phase 4/5 + the suggest/plan/fix/optimize subcommands) and `designer` (the `/recon redesign` design track); every other worker stays read-only. In Phases 2 and 3, the parent dispatches read-only worker subagents — one per area — via the Agent tool; workers return structured notes only. Prompts to spawn each worker type live in `${CLAUDE_PLUGIN_ROOT}/skills/recon/reference/dispatch-prompts.md`; scoring and finding format live in `${CLAUDE_PLUGIN_ROOT}/skills/recon/reference/conventions.md`; output file skeletons live in `${CLAUDE_PLUGIN_ROOT}/skills/recon/reference/artifact-templates.md`. The twelve worker definitions are at `${CLAUDE_PLUGIN_ROOT}/agents/mapper.md`, `${CLAUDE_PLUGIN_ROOT}/agents/hunter.md`, `${CLAUDE_PLUGIN_ROOT}/agents/refactoring-auditor.md`, `${CLAUDE_PLUGIN_ROOT}/agents/verifier.md`, `${CLAUDE_PLUGIN_ROOT}/agents/threat-scout.md`, `${CLAUDE_PLUGIN_ROOT}/agents/frontend-auditor.md`, `${CLAUDE_PLUGIN_ROOT}/agents/pentester.md`, `${CLAUDE_PLUGIN_ROOT}/agents/suggester.md`, `${CLAUDE_PLUGIN_ROOT}/agents/planner.md`, `${CLAUDE_PLUGIN_ROOT}/agents/implementer.md`, `${CLAUDE_PLUGIN_ROOT}/agents/design-reviewer.md`, and `${CLAUDE_PLUGIN_ROOT}/agents/designer.md`; see the References section for all twelve. (The first four run in Phases 2–4 and `threat-scout` in Phase 3 — all read-only; `frontend-auditor` and `pentester` are subcommand workers run via `/recon test-frontend` and `/recon pentest`, and `pentester` is the one worker that sends live attack traffic — read-only on source, active on the network (gated, non-destructive). `suggester` and `planner` are read-only Opus workers for the generative subcommands; `implementer` is a write-enabled worker — Sonnet, confined to its own git worktree — used by the shared execution engine. `design-reviewer` (read-only Opus) and `designer` (Sonnet, worktree-confined — the second write-enabled worker) power the `/recon redesign` design track.)
 
 This system pairs with the Superpowers workflow end to end; each phase below names the relevant `superpowers:*` skills to reach for. Phase 4 (Fix) applies `ISSUES.md` defects; Phase 5 (Optimize) applies `OPTIMIZATIONS.md` refactorings/performance with behavior preservation — both run through the shared Execution engine (applied by worktree-confined `implementer`s), gated, and never on the default branch. Three extra workers (all read-only on your source) support assessments: `threat-scout` (a targeted, app-type threat-model hunt in Phase 3), `frontend-auditor` (a Playwright browser audit via `/recon test-frontend`), and `pentester` (an active, gated, non-destructive API red-team via `/recon pentest`).
 
-**Model policy.** The discovery/diagnosis/planning workers that produce documents — `mapper`, `hunter`, `refactoring-auditor`, `threat-scout`, `frontend-auditor`, `pentester`, `suggester`, `planner` — run on **Opus** (set in each agent's `model:` frontmatter); the `verifier` and the `implementer` run on **Sonnet**. The Phase-4/5 fix/optimize edits are applied by the **Sonnet `implementer`** in isolated worktrees, not the parent. A per-dispatch `model` override still wins over the frontmatter; changed agent models take effect only after a **session reload** (the registry is cached at session start).
+**Model policy.** The discovery/diagnosis/planning workers that produce documents — `mapper`, `hunter`, `refactoring-auditor`, `threat-scout`, `frontend-auditor`, `pentester`, `suggester`, `planner`, `design-reviewer` — run on **Opus** (set in each agent's `model:` frontmatter); the `verifier`, the `implementer`, and the `designer` run on **Sonnet**. The Phase-4/5 fix/optimize edits are applied by the **Sonnet `implementer`** in isolated worktrees, not the parent. A per-dispatch `model` override still wins over the frontmatter; changed agent models take effect only after a **session reload** (the registry is cached at session start).
 
-**Plugin dispatch.** This skill ships as the `recon` plugin, so its workers register under the plugin namespace. Dispatch each by its **namespaced subagent type `recon:<name>`** — `recon:mapper`, `recon:hunter`, `recon:refactoring-auditor`, `recon:verifier`, `recon:threat-scout`, `recon:frontend-auditor`, `recon:pentester`, `recon:suggester`, `recon:planner`, `recon:implementer`. Wherever the phases below name a worker by bare name (e.g. "subagent type `mapper`"), use the namespaced form (`recon:mapper`). The agents' own `name:` frontmatter stays bare — the `recon:` prefix is added by the plugin loader.
+**Plugin dispatch.** This skill ships as the `recon` plugin, so its workers register under the plugin namespace. Dispatch each by its **namespaced subagent type `recon:<name>`** — `recon:mapper`, `recon:hunter`, `recon:refactoring-auditor`, `recon:verifier`, `recon:threat-scout`, `recon:frontend-auditor`, `recon:pentester`, `recon:suggester`, `recon:planner`, `recon:implementer`, `recon:design-reviewer`, `recon:designer`. Wherever the phases below name a worker by bare name (e.g. "subagent type `mapper`"), use the namespaced form (`recon:mapper`). The agents' own `name:` frontmatter stays bare — the `recon:` prefix is added by the plugin loader.
 
 ---
 
@@ -121,14 +121,17 @@ The shared engine that applies changes. Inputs: a set of detailed sub-plans + a 
 
 **autocommit knob:** the implementer ALWAYS commits inside its own worktree (that commit is what gets cherry-picked); the operator's "Autocommit? (yes/no)" gates the **cherry-pick** — *yes* = auto on gate+verifier pass; *no* = show diff + results, wait for OK.
 
-**Implementer modes:**
+**Builder modes:**
 
-| | **fix** | **optimize** | **feature** |
-|---|---|---|---|
-| Test | failing reproduce test | characterization tests (if thin) | feature tests (TDD) |
-| Pass bar | suite ≥ baseline + new test | identical outcomes (no flip) | suite ≥ baseline + new tests |
-| Perf | none (optimize-only) | `perfRuns` pre/post + reject criteria | none (optimize-only) |
-| Commit | Phase-4 template | Phase-4 template (Performance always populated) | feature template |
+| | **fix** | **optimize** | **feature** | **design** |
+|---|---|---|---|---|
+| Builder | implementer | implementer | implementer | **designer** |
+| Test | failing reproduce test | characterization tests (if thin) | feature tests (TDD) | static anti-pattern checks + visual-regression pins |
+| Pass bar | suite ≥ baseline + new test | identical outcomes (no flip) | suite ≥ baseline + new tests | no new anti-pattern + visual diff approved + suite ≥ baseline |
+| Perf | none (optimize-only) | `perfRuns` pre/post + reject criteria | none (optimize-only) | none |
+| Commit | Phase-4 template | Phase-4 template (Performance always populated) | feature template | `[design]` template |
+
+**`design` mode (the `/recon redesign` track).** The engine dispatches **`designer`** (`recon:designer`) instead of `implementer`, caps parallelism at **`designConcurrency`** (default 3 — design builds are heavier: each designer runs a dev server + headless browser in its worktree, on a distinct port = `BASE_PORT + in-wave slot index`, where `BASE_PORT` is chosen clear of the ground-phase app's port — e.g. app-port + 100), and captures a **shared visual baseline** against the originating branch before the first wave (`.recon/design/baseline/` or the seeded Vizzly baseline), re-captured between waves. Everything else (worktree isolation, out-of-declaration check, cherry-pick separate commits / no squash, never the default branch) is identical — **except** the no-baseline pause: in `design` mode the operator's visual approve/reject IS the human gate, so the generic "never auto-cherry-pick a `baseline unavailable` plan" pause does **not** also apply (no redundant double gate). The design test gate is detailed in the `## Design improvement` section.
 
 **Perf-target cascade (optimize only):** (1) benchmarkable hot path → fix-specific micro-benchmark; (2) else a project bench command → run it; (3) else full-suite wall-clock; (4) else `performance: n/a — <why>`. `perfTarget`: auto=cascade (default), suite=case 3, bench=case 2, off=skip + `n/a — disabled by operator`.
 
@@ -185,6 +188,24 @@ The in-pipeline path (Hunt → Phase-3 gate → Phase 4/5) is unchanged; these s
 
 ---
 
+## Design improvement (`/recon redesign`)
+
+Invoking recon with `redesign` improves the app's **UI/visual design** — a read-only audit (`design-reviewer`) + planning, then implementation by parallel `designer`s through the shared Execution engine (`design` mode). Grounded in the 3-level design method in `knowledge/design/`.
+
+1. **Ground.** Resolve the app URL + start command using the **same resolution + fallback as `/recon:recon test-frontend`**. **No-frontend bail:** if no frontend / dev-start command is resolvable (a pure backend/library repo), report that and **stop** — redesign needs a UI. If the frontend is down, auto-start it in the background and poll until ready (~2s × ~60s); record if recon started it. Read frontend source + any existing `.recon/design.md`.
+2. **Dispatch `design-reviewer`** (subagent type `recon:design-reviewer`, `## Design-reviewer dispatch`): audit the three levels (single-page craft / system consistency / testability) from source + live Playwright screenshots. **FIRST run authors** `.recon/design.md`; **LATER run audits** the existing one and proposes refinements. If it can't reach the Playwright tools, the parent drives the browser; if neither can, do a static source-only review and say so.
+3. **Record + gate.** The parent writes `.recon/design.md` + `.recon/design/review-<date>.md` (screenshots under `.recon/design/screenshots/`), presents them, and the operator **selects which improvements to pursue** and approves the design.md.
+4. **Plan.** Dispatch `recon:planner` (detail mode, `## Planner dispatch (detail)`) over the selected improvements (mode = `design`) → one design sub-plan each (goal/acceptance tied to design.md, declared file set, the design.md pins) + the parallelization map.
+5. **Plan-review + "implement?" gate** (+ the autocommit prompt).
+6. **Execute** via the Execution engine in **`design` mode**: parallel `recon:designer`s (own worktrees + dev-server ports) → design test gate (static anti-pattern checks + Vizzly/Playwright visual diff vs the shared baseline, operator-approved + suite ≥ baseline) → out-of-declaration check → `recon:verifier` on risky (design-reframed) → parent authors the `.recon/design/<n>-<slug>/` dossier → cherry-picks each surviving commit back.
+7. **Finish.** Summary + `superpowers:finishing-a-development-branch`; stop the app if recon started it; clean up worktrees. Never the default branch.
+
+**Companions (recommended):** best with `web-design-guidelines` (`npx skills add vercel-labs/agent-skills`) for live-source principle audits and **Vizzly CLI** (`vizzly-testing/cli`) for visual-regression TDD — graceful Playwright fallback if Vizzly is absent.
+
+> **Superpowers boost:** `superpowers:brainstorming` (the reviewer proposes distinctive, codebase-specific moves, not generic polish) → `superpowers:dispatching-parallel-agents` → `superpowers:writing-plans` → `superpowers:using-git-worktrees` → `superpowers:test-driven-development` (the designer writes the static + visual pins first) → `superpowers:verification-before-completion` → the engine chain.
+
+---
+
 ## Frontend audit (`/recon test-frontend`)
 
 Invoking recon with the argument `test-frontend` runs a browser audit of the running app (not the full pipeline), via the read-only `frontend-auditor` agent (Playwright). It never edits source.
@@ -231,4 +252,7 @@ Invoking recon with the argument `pentest` runs an **active, gated, non-destruct
 - `${CLAUDE_PLUGIN_ROOT}/agents/suggester.md` — suggester (read-only feature ideator) worker definition
 - `${CLAUDE_PLUGIN_ROOT}/agents/planner.md` — planner (read-only general + detailed planning) worker definition
 - `${CLAUDE_PLUGIN_ROOT}/agents/implementer.md` — implementer (write-enabled, worktree-isolated executor) worker definition
+- `${CLAUDE_PLUGIN_ROOT}/agents/design-reviewer.md` — design-reviewer (read-only UI/visual design auditor + planner) worker definition
+- `${CLAUDE_PLUGIN_ROOT}/agents/designer.md` — designer (write-enabled, worktree-isolated UI design executor) worker definition
+- `${CLAUDE_PLUGIN_ROOT}/skills/recon/knowledge/design/` — design knowledge base (design-levels, anti-patterns, principles) read by the design-reviewer
 - Evolve this skill itself with `superpowers:writing-skills`.

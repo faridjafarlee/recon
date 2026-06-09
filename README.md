@@ -21,11 +21,13 @@ The main Claude Code session is the **parent**: it drives the phases and fans ou
   /plugin install superpowers@superpowers-marketplace
   ```
 
-- **[Web Design Guidelines](https://github.com/vercel-labs/agent-skills)** (Vercel Labs) — a live-source UI design-principles audit (`/web-interface-guidelines`) that recon's design workflow leans on. Install via the `skills` CLI:
+- **[Web Design Guidelines](https://github.com/vercel-labs/agent-skills)** (Vercel Labs) — a live-source UI design-principles audit (`/web-interface-guidelines`) that `/recon:recon redesign` leans on. Install via the `skills` CLI:
 
   ```text
   npx skills add vercel-labs/agent-skills
   ```
+
+- **[Vizzly CLI](https://github.com/vizzly-testing/cli)** (optional) — visual-regression TDD for `/recon:recon redesign`. With it, the `designer` reviews pixel diffs with metadata and approve/reject; without it, recon falls back to plain Playwright before/after screenshots. Install (Node 22+): `npm i -g @vizzly-testing/cli`, then `vizzly init` and `vizzly tdd start`.
 
 **Then recon:**
 
@@ -74,10 +76,11 @@ Drive the full pipeline with **`/recon:recon`** — the parent stops at a gate b
 | `/recon:recon plan "<task>"` | The `recon:planner` decomposes an arbitrary task (greenfield OK) into a general plan → you approve → detailed parallel sub-plans → optional build. |
 | `/recon:recon fix` | Front door to the Fix engine on selected `ISSUES.md` findings (auto-runs the Hunt first if missing). |
 | `/recon:recon optimize` | Front door to the Optimize engine on selected `OPTIMIZATIONS.md` findings (auto-runs the Hunt first if missing). |
+| `/recon:recon redesign` | Improve the app's **UI/visual design**: `recon:design-reviewer` audits the running app (source + Playwright) → writes `.recon/design.md` + an improvement plan → you select → parallel `recon:designer`s implement each in a worktree, gated by visual-regression TDD → cherry-pick back. |
 
 ## Subagents & orchestration
 
-recon is a **parent + workers** system. The **parent** is your Claude Code session: it never edits source itself — it **drives the phases, dispatches subagents, independently re-verifies their findings, owns every write to `.recon/` and the work branch, and stops at a human gate between phases.** Each worker is a single-purpose subagent with a tight tool allowlist. All workers are **read-only on your source** except the one write-enabled `implementer`, and even it writes *only* inside its own isolated git worktree.
+recon is a **parent + workers** system. The **parent** is your Claude Code session: it never edits source itself — it **drives the phases, dispatches subagents, independently re-verifies their findings, owns every write to `.recon/` and the work branch, and stops at a human gate between phases.** Each worker is a single-purpose subagent with a tight tool allowlist. All workers are **read-only on your source** except the two write-enabled builders (`implementer` and `designer`), which write *only* inside their own isolated git worktrees.
 
 Workers are spawned through the Agent tool by their **plugin-namespaced type** (`recon:mapper`, `recon:hunter`, …). The fill-in prompt for each lives in `skills/recon/reference/dispatch-prompts.md`; the severity rubric + finding format in `reference/conventions.md`; the output skeletons in `reference/artifact-templates.md`. Workers return **structured notes only** — they never write the deliverables; the parent does, after re-reading each cited `file:line`.
 
@@ -94,7 +97,9 @@ Workers are spawned through the Agent tool by their **plugin-namespaced type** (
 | `recon:pentester` | Opus | read-only on source, **active on the network** | `/recon:recon pentest` | Authorized, non-destructive API red-team → PoC-proven vulnerabilities. |
 | `recon:suggester` | Opus | read-only | `/recon:recon suggest` | Ideates ≥10 codebase-specific features grounded in the Map. |
 | `recon:planner` | Opus | read-only | suggest / plan / fix / optimize | **Decompose** mode: a task → a general plan. **Detail** mode: items → per-item sub-plans + a file-overlap **parallelization map**. |
-| `recon:implementer` | Sonnet | **writes — only inside its own git worktree** | execution engine | One per sub-plan; implements, tests against the baseline, makes one commit. The single write-enabled worker. |
+| `recon:implementer` | Sonnet | **writes — only inside its own git worktree** | execution engine (fix/optimize/feature) | One per sub-plan; implements, tests against the baseline, makes one commit. |
+| `recon:design-reviewer` | Opus | read-only (drives a browser) | `/recon:recon redesign` | Audits the frontend's design (source + Playwright) across 3 levels → `.recon/design.md` + a prioritized improvement plan. |
+| `recon:designer` | Sonnet | **writes — only inside its own git worktree** | execution engine (design) | One per design sub-plan; implements a visual change, verifies via visual-regression TDD (Vizzly/Playwright), makes one commit. Runs its own dev server + headless capture. |
 
 ### How a run flows
 
@@ -144,6 +149,7 @@ Phase 4 (Fix), Phase 5 (Optimize), and the build half of `suggest` / `plan` all 
 
 - **Autocommit** `yes|no` — asked at the start; gates whether each passing worktree commit is auto-cherry-picked or shown for your OK first.
 - `implConcurrency` (default **10**) — max parallel implementers (read-only workers are uncapped).
+- `designConcurrency` (default **3**) — max parallel designers in `/recon:recon redesign` (each runs a dev server + browser, so heavier).
 - `perfRuns` (default **5**), `perfTarget` = `auto|suite|bench|off` — **optimize-mode only**; fixes don't benchmark.
 - `dossier` = `commit` (default) `|gitignore`.
 
@@ -162,7 +168,7 @@ recon/
 │   ├── SKILL.md             # the orchestrator playbook (5 phases + engine + subcommands)
 │   ├── reference/           # conventions, dispatch prompts, artifact templates
 │   └── knowledge/refactoring/   # code-smells + refactoring-techniques catalog
-├── agents/                  # 10 workers (read-only on source; implementer writes only in its worktree)
+├── agents/                  # 12 workers (read-only on source; implementer + designer write only in their worktrees)
 └── docs/                    # design spec + implementation plan (provenance)
 ```
 

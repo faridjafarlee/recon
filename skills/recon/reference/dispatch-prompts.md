@@ -107,8 +107,8 @@ Baseline test state: <X passing / Y failing before this fix was applied>
 
 Performance delta: <target; before mean → after mean (±%); ≥ perfRuns (default 5) runs each — or "n/a — disabled by operator" / "n/a — <why>">
 
-Mode: <fix | optimize | feature>
-(feature mode: judge "Does this diff meet the sub-plan's acceptance criteria, stay within the declared file set, and not regress the baseline?" — NOT "is the root cause fixed". fix/optimize: the existing fix/refactor checklist applies, including the Phase-5 behavior-preservation check for optimize.)
+Mode: <fix | optimize | feature | design>
+(feature mode: judge "Does this diff meet the sub-plan's acceptance criteria, stay within the declared file set, and not regress the baseline?" — NOT "is the root cause fixed". fix/optimize: the existing fix/refactor checklist applies, including the Phase-5 behavior-preservation check for optimize. design mode: judge "Does this diff satisfy the named design.md pins, introduce no new anti-pattern, stay within the declared file set, and keep the suite ≥ baseline?" — visual quality is judged from the before/after screenshots, NOT the code root-cause checklist.)
 ```
 
 ---
@@ -282,7 +282,7 @@ Return: Approach & rationale (alternatives rejected); Workstreams; Sequencing + 
 ```
 You are the planner agent in DETAIL mode. Produce a detailed sub-plan per item plus a parallelization map.
 
-Items (each with its mode): <paste selected suggestions / approved workstreams / selected ISSUES.md|OPTIMIZATIONS.md findings; mark each mode = feature | fix | optimize>
+Items (each with its mode): <paste selected suggestions / approved workstreams / selected ISSUES.md|OPTIMIZATIONS.md findings / selected design improvements; mark each mode = feature | fix | optimize | design>
 
 Project context: <stack/purpose/invariants; or "greenfield">
 
@@ -308,4 +308,43 @@ perfRuns (optimize only): <default 5>
 Commit format: <paste the feature-commit or Phase-4 commit template from conventions.md, matching the mode>
 
 Run your MODE's discipline. On success make the one commit and return the structured report (changes, files touched, tests vs baseline, perf delta if optimize, commit hash). On failure make NO commit and report why.
+```
+
+---
+
+## Design-reviewer dispatch
+
+```
+You are the design-reviewer agent. Audit the existing frontend design and return a general improvement plan + design.md content.
+
+Project context: <stack, purpose, key invariants>
+App URL: <running URL, e.g. http://localhost:3000>
+Key pages/flows to assess: <list — or "derive from router/nav; the parent confirmed them">
+Run kind: <FIRST run — author .recon/design.md | LATER run — audit against + refine the existing .recon/design.md (pasted below)>
+Existing design.md (later runs): <paste, or "none — first run">
+Screenshot dir: .recon/design/screenshots/
+
+Read your knowledge base first (your system prompt lists the three knowledge/design/ files). If the `web-design-guidelines` skill is installed, use it too.
+
+Assess the three levels (single-page craft, system consistency, testability) using source + live browser screenshots. Return: design.md content (the visual system); a prioritized general improvement plan (each: title / what's wrong + screenshot evidence / principle or anti-pattern addressed / pages affected / effort S|M|L); and per-improvement test pins (mechanically-checkable vs visual-judged). If you can't reach the browser tools, say so.
+```
+
+---
+
+## Designer dispatch
+
+```
+You are the designer agent. Implement the single design sub-plan below inside your assigned worktree, verify it visually, and make ONE commit. Obey your write/safety contract and the design runtime rules.
+
+Worktree path: <abs path — write ONLY here>
+Dev-server port: <BASE_PORT + in-wave slot index>
+Sub-plan: <paste: goal/acceptance tied to design.md, declared file set, steps, the design.md pins to satisfy>
+Declared file set: <exact paths — do not touch anything outside this>
+Shared baseline: <path to .recon/design/baseline/ screenshots, or the seeded Vizzly baseline>
+Test command: <e.g. pnpm test — or "none (no suite)">
+Phase-1 baseline: <X passing / Y failing — or "none">
+Vizzly available: <yes | no — if no, capture before/after Playwright screenshots for operator approval>
+Commit format: <paste the [design] commit template from conventions.md>
+
+Run the L3 discipline (pins first → implement → static checks + visual diff vs the shared baseline + suite ≥ baseline). Start the dev server on YOUR port (headless capture via your own worktree, not a shared browser); STOP it before returning. On success: one commit + structured report (incl. before/after screenshot paths). On failure: no commit + reason.
 ```

@@ -102,3 +102,29 @@ Co-Authored-By: ...
 **Sub-plan entry format** (`.recon/plans/<plan-id>/<n>-<slug>.md`): Mode / Goal+acceptance / Declared file set / Steps / Tests / Origin.
 
 **Engine blocked reasons (additional):** `> blocked: wrote outside declared file set — <paths>`; `> blocked: depends on <failed plan>` (held dependent in a later batch); `> blocked: cherry-pick conflict — <files>`.
+
+### `design` mode (the `/recon redesign` track)
+
+The engine's fourth mode. Builder = **`designer`** (Sonnet), **not** `implementer`. Gate = visual-regression TDD (static anti-pattern checks + Vizzly/Playwright visual diff + suite ≥ baseline) — see the SKILL "Design improvement" section.
+
+- **`designConcurrency` (default 3, operator-overridable)** — separate from `implConcurrency` (10) because design builds are heavier: each `designer` runs a **dev server + headless browser** in its worktree. Larger batches run in waves; each designer uses a **distinct port** = `BASE_PORT + in-wave slot index`.
+- **Shared visual baseline** captured against the originating branch before the first wave (`.recon/design/baseline/` or the seeded Vizzly baseline), re-captured between waves; parent-owned.
+- **No-baseline carve-out:** the §5.2 operator **visual approve/reject IS the human gate**, so design mode does **not** also apply the generic "never auto-cherry-pick a `baseline unavailable` plan" pause (no redundant double gate).
+- **Design dossier** lives at `.recon/design/<n>-<slug>/` (NOT under `.recon/fixes/`).
+
+**Design-commit template** (`designer`, feature-shaped, `[design]`):
+```
+[design] <short title>
+
+Goal: <the visual improvement, one line>
+Design.md pins: <which rules/anti-patterns this satisfies>
+What changed: <one line>
+Visual: <before→after summary; screenshots in the dossier>
+Tests: <static checks + suite X/Y → X/Y, or "baseline unavailable — manual review">
+Plan: <plan-id>/<n>-<slug>
+Compatibility: <behaviour preserved>
+
+Co-Authored-By: ...
+```
+
+**Design blocked reasons (additional):** `> blocked: visual regression rejected`; `> blocked: introduces anti-pattern — <which>`.
